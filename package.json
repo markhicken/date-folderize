@@ -1,0 +1,26 @@
+{
+  "name": "folderize",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Move files into folders based on creation date (EXIF aware)",
+  "main": "folderize.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markhicken/folderize.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/markhicken/folderize/issues"
+  },
+  "homepage": "https://github.com/markhicken/folderize#readme",
+  "dependencies": {
+    "enquirer": "^2.3.6",
+    "globby": "^13.1.4",
+    "node-exif": "^1.0.1",
+    "utimes": "^5.1.1"
+  }
+}
