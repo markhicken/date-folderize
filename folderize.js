@@ -134,7 +134,7 @@ async function moveFiles(_srcPath, _dstPath) {
     process.exit(error);
   }
 
-  log('Getting files info...');
+  files.length && log('Getting files info...');
   for(let i=0; i<files.length; i++) {
     log(`Getting file info: (${i+1}/${files.length}) ${files[i].path}`, false);
     files[i] = await getExtendedFile(files[i]);
@@ -153,7 +153,7 @@ async function moveFiles(_srcPath, _dstPath) {
     };
   });
 
-  log('Creating folders...');
+  files.length && log('Creating folders...');
   filesForFiling.forEach((file, index) => {
     // check if folder exists
     if(!fs.existsSync(file.dstPath)) {
