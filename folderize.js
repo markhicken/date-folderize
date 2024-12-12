@@ -10,7 +10,12 @@ import { utimesSync } from 'utimes';
 const CONTINUOUS_INTERVAL = 1000 * 60 * 60; // minutes
 const LOG_FOLDER = './log';
 const LOG_FILE = getLogFileName();
-const overwriteableFiles = ['.DS_Store', 'Thumbs.db'];
+const IGNORED_FILES = ['.DS_Store', 'Thumbs.db'];
+const ALLOWED_FILE_EXTENSIONS = [
+  '.jpg', '.jpeg', '.gif', '.heic', '.raw', '.cr2', '.nef', // '.png', (png tends to be iPhone screenshots and garbage images)
+  '.mov', '.mp4', '.m4v', '.avi', '.wmv', '.flv', '.mkv', '.webm'
+].map(ext => ext.toLowerCase());
+
 
 let srcPath = process.argv[2];
 let dstPath = process.argv[3];
@@ -162,23 +167,29 @@ async function moveFiles(_srcPath, _dstPath) {
 
     // do the move
     try {
-      if(
-        !fs.existsSync(file.dstFilePath) ||
-        overwriteableFiles.includes(file.name)
-      ) {
-        // fs.renameSync only works if src and dst are on the same drive so we'll copy and unlink instead
-        fs.copyFileSync(file.srcFilePath, file.dstFilePath);
-        // to retain timestamps
-        utimesSync(file.dstFilePath, {
-          btime: Math.floor(file.stats.birthtimeMs || file.stats.btimeMs),
-          mtime: Math.floor(file.stats.mtimeMs),
-          atime: Math.floor(file.stats.atimeMs)
-        });
-        fs.unlinkSync(file.srcFilePath);
-        log(`(${index+1}/${filesForFiling.length}) Moved "${file.srcFilePath}" to "${file.dstFilePath}"`);
-      } else {
+      if (IGNORED_FILES.includes(file.name)) {
+        throw {message: 'file is in the ignored files list'};
+      }
+
+      const fileExtension = path.extname(file.name).toLowerCase()
+      if (!ALLOWED_FILE_EXTENSIONS.includes(fileExtension)) {
+        throw {message: `file extension ${fileExtension} is ignored`};
+      }
+
+      if(fs.existsSync(file.dstFilePath)) {
         throw {message: 'destination already exists'};
       }
+
+      // fs.renameSync only works if src and dst are on the same drive so we'll copy and unlink instead
+      fs.copyFileSync(file.srcFilePath, file.dstFilePath);
+      // to retain timestamps
+      utimesSync(file.dstFilePath, {
+        btime: Math.floor(file.stats.birthtimeMs || file.stats.btimeMs),
+        mtime: Math.floor(file.stats.mtimeMs),
+        atime: Math.floor(file.stats.atimeMs)
+      });
+      fs.unlinkSync(file.srcFilePath);
+      log(`(${index+1}/${filesForFiling.length}) Moved "${file.srcFilePath}" to "${file.dstFilePath}"`);
     } catch (error) {
       log(`(${index+1}/${filesForFiling.length}) Error moving "${file.srcFilePath}" to "${file.dstFilePath}" - ` + error.message);
     }
