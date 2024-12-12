@@ -4,15 +4,13 @@ This script moves files into folders based on creation date. It first checks for
 
 Files are moved into folders of the following format...
 
-`{YEAR}/{YEAR-MONTH}`
+`{YEAR}/{YEAR-MONTH}`  (maybe later this will be configurable)
 
-`2023/2023-01`
+EX: `2023/2023-01`
 
-----------
 
 ## Usage
 
-`node folderize.js SOURCE_FOLDER DESTINATION_FOLDER`
+`node folderize.js {SOURCE_FOLDER} {DESTINATION_FOLDER} continuous`
 
-...insert magic here...
-
+"continuous" is an optional flag to keep it running on an interval
