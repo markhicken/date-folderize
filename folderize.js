@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { utimesSync } from 'utimes';
 
-const CONTINUOUS_INTERVAL = 1000 * 60 * 1; // minutes
+const CONTINUOUS_INTERVAL = 1000 * 60 * 60; // minutes
 const LOG_FOLDER = './log';
 const LOG_FILE = getLogFileName();
 const overwriteableFiles = ['.DS_Store', 'Thumbs.db'];
