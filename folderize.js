@@ -27,14 +27,16 @@ function getLogFileName() {
   return `${LOG_FOLDER}/folderize_${timestamp}.log`;
 };
 
-async function log(message) {
+async function log(message, persistToFile = true) {
   const timestamp = new Date().toISOString();
   const logEntry = `${timestamp} - ${message}\n`;
   console.log(message);
-  try {
-    await fs.promises.appendFile(LOG_FILE, logEntry);
-  } catch (error) {
-    console.log('error writing to log file');
+  if (persistToFile) {
+    try {
+      await fs.promises.appendFile(LOG_FILE, logEntry);
+    } catch (error) {
+      console.log('error writing to log file');
+    }
   }
 }
 
@@ -88,6 +90,29 @@ function validatePath(path, pathName, shouldCreate) {
   }
 }
 
+async function getExtendedFile(file) {
+  return new Promise((resolve, reject) => {
+    let updatedFile = {...file, exifData: null, filingDateSrc: 'file.createdAt', errorInfo: []};
+    let filingCreatedDate = updatedFile.stats.birthtime;
+    try {
+      new ExifImage({image: file.path}, function (error, exifData) {
+        if (error) {
+          updatedFile.errorInfo.push(`Error parsing EXIF data for "${file.path}". Using file date instead - ` + error.message);
+        } else {
+          const exifCreateDate = exifData.exif.CreateDate || exifData.exif.DateTimeOriginal || exifData.exif.DateTimeDigitized || exifData.image.ModifyDate || exifData.image.CreateDate;
+          updatedFile.filingCreatedDate = exifCreateDate || file.stats.birthtime;
+          updatedFile.exifData = {...exifData};
+          if (exifCreateDate) { updatedFile.filingDateSrc = `exif`; }
+        }
+        resolve({...updatedFile, filingCreatedDate});
+      });
+    } catch(error) {
+      updatedFile.errorInfo.push(`No EXIF data for "${file}". Using file created date instead - ` + error.message);
+      resolve({...updatedFile, filingCreatedDate});
+    }
+  });
+};
+
 async function moveFiles(_srcPath, _dstPath) {
   // no need to recurse because of globby
   let files;
@@ -104,28 +129,11 @@ async function moveFiles(_srcPath, _dstPath) {
     process.exit(error);
   }
 
-  files = await Promise.all(files.map(async(file) => {
-    return new Promise((resolve, reject) => {
-      let updatedFile = {...file, exifData: null, filingDateSrc: 'file.createdAt', errorInfo: []};
-      let filingCreatedDate = updatedFile.stats.birthtime;
-      try {
-        new ExifImage({image: file.path}, function (error, exifData) {
-          if (error) {
-            updatedFile.errorInfo.push(`Error parsing EXIF data for "${file.path}". Using file date instead - ` + error.message);
-          } else {
-            const exifCreateDate = exifData.exif.CreateDate || exifData.exif.DateTimeOriginal || exifData.exif.DateTimeDigitized || exifData.image.ModifyDate || exifData.image.CreateDate;
-            updatedFile.filingCreatedDate = exifCreateDate || file.stats.birthtime;
-            updatedFile.exifData = {...exifData};
-            if (exifCreateDate) { updatedFile.filingDateSrc = `exif`; }
-          }
-          resolve({...updatedFile, filingCreatedDate});
-        });
-      } catch(error) {
-        updatedFile.errorInfo.push(`No EXIF data for "${file}". Using file created date instead - ` + error.message);
-        resolve({...updatedFile, filingCreatedDate});
-      }
-    });
-  }));
+  log('Getting files info...');
+  for(let i=0; i<files.length; i++) {
+    log(`Getting file info: (${i+1}/${files.length}) ${files[i].path}`, false);
+    files[i] = await getExtendedFile(files[i]);
+  }
 
   const filesForFiling = files.map(file => {
     const filingDate = new Date(file.filingCreatedDate);
@@ -140,6 +148,7 @@ async function moveFiles(_srcPath, _dstPath) {
     };
   });
 
+  log('Creating folders...');
   filesForFiling.forEach((file, index) => {
     // check if folder exists
     if(!fs.existsSync(file.dstPath)) {
@@ -173,7 +182,7 @@ async function moveFiles(_srcPath, _dstPath) {
     } catch (error) {
       log(`(${index+1}/${filesForFiling.length}) Error moving "${file.srcFilePath}" to "${file.dstFilePath}" - ` + error.message);
     }
-  });  
+  });
 }
 
 
@@ -187,7 +196,7 @@ async function checkAndFolderize() {
 
 (async () => {
   validatePath(LOG_FOLDER, 'log', true);
-  continuous && await log('Folderize started');
+  continuous && await log('Folderize started.');
   validatePath(srcPath, 'Source');
   validatePath(dstPath, 'Destination');
 
@@ -199,15 +208,15 @@ async function checkAndFolderize() {
       process.exit(0);
     }
   }
-  
-  
+
+
   // handle first run
   await checkAndFolderize();
 
   if (continuous) {
     // Set up periodic runs
-    setInterval(async() => { 
-      await checkAndFolderize(); 
+    setInterval(async() => {
+      await checkAndFolderize();
     }, CONTINUOUS_INTERVAL);
   } else {
     // offer to clean up after single runs
